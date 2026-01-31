@@ -462,10 +462,22 @@ function showError(message) {
     }, 5000);
 }
 
-// Start initialization
-console.log('Starting initialization...');
-initPyodide().catch(error => {
-    console.error('Unhandled error in initPyodide:', error);
-    showFallbackError(error);
-});
-initUI();
+// Start initialization when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM ready, starting initialization...');
+        initPyodide().catch(error => {
+            console.error('Unhandled error in initPyodide:', error);
+            showFallbackError(error);
+        });
+        initUI();
+    });
+} else {
+    // DOM already loaded
+    console.log('DOM already ready, starting initialization...');
+    initPyodide().catch(error => {
+        console.error('Unhandled error in initPyodide:', error);
+        showFallbackError(error);
+    });
+    initUI();
+}
