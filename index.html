@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hearts Bot - Best Move Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🂱 Hearts Bot</h1>
+            <p class="subtitle">Monte Carlo AI for optimal Hearts play</p>
+            <details style="margin-top: 20px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                <summary style="cursor: pointer; font-size: 0.9em; opacity: 0.9;">How to use</summary>
+                <div style="padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; margin-top: 10px;">
+                    <ol style="text-align: left; line-height: 1.8;">
+                        <li><strong>Add your hand:</strong> Select cards and click "Add Card" until you have all 13 cards</li>
+                        <li><strong>Set game state:</strong> Check "Hearts Broken" if hearts have been played, and "First Trick" if this is the first trick</li>
+                        <li><strong>Add trick cards:</strong> If cards have been played in the current trick, add them with the player who played them</li>
+                        <li><strong>Adjust samples:</strong> More samples = better decisions but slower (500 is a good balance)</li>
+                        <li><strong>Get recommendation:</strong> Click "Get Best Move" to see the bot's recommendation</li>
+                    </ol>
+                </div>
+            </details>
+        </header>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading bot engine...</p>
+        </div>
+
+        <div id="app" class="app hidden">
+            <div class="section">
+                <h2>Your Hand</h2>
+                <div class="hand-input">
+                    <div id="hand-display" class="hand-display"></div>
+                    <div class="card-selector">
+                        <label>Add Card:</label>
+                        <select id="rank-select">
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="J">J</option>
+                            <option value="Q">Q</option>
+                            <option value="K">K</option>
+                            <option value="A">A</option>
+                        </select>
+                        <select id="suit-select">
+                            <option value="♣">♣ Clubs</option>
+                            <option value="♦">♦ Diamonds</option>
+                            <option value="♠">♠ Spades</option>
+                            <option value="♥">♥ Hearts</option>
+                        </select>
+                        <button id="add-card-btn" class="btn btn-primary">Add Card</button>
+                    </div>
+                    <button id="clear-hand-btn" class="btn btn-secondary">Clear Hand</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Game State</h2>
+                <div class="game-state">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="hearts-broken">
+                            Hearts Broken
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="is-first-trick">
+                            First Trick
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Current Trick (cards played so far):</label>
+                        <div id="trick-display" class="trick-display"></div>
+                        <div class="trick-input">
+                            <select id="trick-rank-select">
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="J">J</option>
+                                <option value="Q">Q</option>
+                                <option value="K">K</option>
+                                <option value="A">A</option>
+                            </select>
+                            <select id="trick-suit-select">
+                                <option value="♣">♣ Clubs</option>
+                                <option value="♦">♦ Diamonds</option>
+                                <option value="♠">♠ Spades</option>
+                                <option value="♥">♥ Hearts</option>
+                            </select>
+                            <select id="trick-player-select">
+                                <option value="1">Player 1</option>
+                                <option value="2">Player 2</option>
+                                <option value="3">Player 3</option>
+                            </select>
+                            <button id="add-trick-card-btn" class="btn btn-primary">Add to Trick</button>
+                        </div>
+                        <button id="clear-trick-btn" class="btn btn-secondary">Clear Trick</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Bot Settings</h2>
+                <div class="form-group">
+                    <label>Monte Carlo Samples:</label>
+                    <input type="number" id="n-samples" value="500" min="100" max="2000" step="100">
+                    <small>More samples = better decisions but slower (100-2000)</small>
+                </div>
+            </div>
+
+            <div class="section">
+                <button id="get-move-btn" class="btn btn-large btn-primary">
+                    Get Best Move
+                </button>
+            </div>
+
+            <div id="result" class="result hidden">
+                <h2>Recommended Move</h2>
+                <div id="result-card" class="result-card"></div>
+                <div id="result-details" class="result-details"></div>
+            </div>
+
+            <div id="error" class="error hidden"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
