@@ -39,9 +39,44 @@ async function initPyodide() {
         document.getElementById('app').classList.remove('hidden');
     } catch (error) {
         console.error('Error initializing Pyodide:', error);
-        document.getElementById('loading').innerHTML = 
-            `<p style="color: red;">Error loading bot: ${error.message}</p>`;
+        showFallbackError(error);
     }
+}
+
+// Show fallback error with helpful message
+function showFallbackError(error) {
+    const loadingEl = document.getElementById('loading');
+    loadingEl.innerHTML = `
+        <div style="padding: 40px; text-align: center;">
+            <h2 style="color: #dc3545; margin-bottom: 20px;">⚠️ Bot Engine Failed to Load</h2>
+            <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left;">
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p style="margin-top: 10px; font-size: 0.9em;">
+                    This usually happens due to network issues or browser compatibility. 
+                    Please try:
+                </p>
+                <ul style="margin-top: 10px; padding-left: 20px;">
+                    <li>Refreshing the page</li>
+                    <li>Checking your internet connection</li>
+                    <li>Using a modern browser (Chrome, Firefox, Safari, Edge)</li>
+                    <li>Clearing your browser cache</li>
+                </ul>
+            </div>
+            <button onclick="location.reload()" style="
+                padding: 12px 24px;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 1em;
+                cursor: pointer;
+                margin-top: 20px;
+            ">Retry</button>
+            <p style="margin-top: 30px; color: #6c757d; font-size: 0.9em;">
+                If the problem persists, check the browser console (F12) for more details.
+            </p>
+        </div>
+    `;
 }
 
 // Load bot code from files
@@ -153,8 +188,29 @@ import bot_bridge
         console.log('Bot module loaded successfully');
     } catch (error) {
         console.error('Error importing modules:', error);
-        throw new Error(`Failed to import bot bridge: ${error.message}`);
+        // Try fallback: check if files exist and provide helpful error
+        try {
+            const filesExist = pyodide.runPython(`
+import os
+files_to_check = [
+    'hearts_bot/__init__.py',
+    'hearts_bot/core/cards.py',
+    'hearts_bot/bot.py',
+    'bot_bridge.py'
+]
+missing = [f for f in files_to_check if not os.path.exists(f)]
+missing
+            `);
+            const missing = filesExist.toJs();
+            if (missing.length > 0) {
+                throw new Error(`Missing required files: ${missing.join(', ')}. Please ensure all bot files are accessible.`);
+            }
+        } catch (checkError) {
+            console.error('File check failed:', checkError);
+        }
+        throw new Error(`Failed to import bot modules: ${error.message}. Check browser console for details.`);
     }
+}
 }
 
 // State management
@@ -273,6 +329,12 @@ function getSuitClass(suit) {
 }
 
 async function getBestMove() {
+    // Validate bot is loaded
+    if (!botModule) {
+        showError('Bot engine not loaded. Please refresh the page and try again.');
+        return;
+    }
+    
     // Validate
     if (hand.length === 0) {
         showError('Please add cards to your hand!');
@@ -293,6 +355,11 @@ async function getBestMove() {
         const heartsBroken = document.getElementById('hearts-broken').checked;
         const isFirstTrick = document.getElementById('is-first-trick').checked;
         const nSamples = parseInt(document.getElementById('n-samples').value);
+        
+        // Validate n_samples
+        if (isNaN(nSamples) || nSamples < 100 || nSamples > 2000) {
+            throw new Error('Number of samples must be between 100 and 2000');
+        }
         
         // Convert hand to Python format
         const handCards = hand.map(card => [
@@ -339,7 +406,8 @@ async function getBestMove() {
         
     } catch (error) {
         console.error('Error getting best move:', error);
-        showError(`Error: ${error.message}`);
+        const errorMsg = error.message || 'An unknown error occurred';
+        showError(`Error calculating best move: ${errorMsg}. Please check your input and try again.`);
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
