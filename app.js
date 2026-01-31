@@ -123,29 +123,37 @@ os.makedirs('hearts_bot/engine', exist_ok=True)
     }
 
     // Now import modules - files are in Pyodide's filesystem
+    // We need to import in the right order to handle relative imports
     try {
-        // Simple import should work now that files are in place
-        pyodide.runPython('import bot_bridge');
+        // Import packages in order to establish package structure
+        pyodide.runPython(`
+# Import packages to establish structure
+import hearts_bot
+import hearts_bot.core
+import hearts_bot.inference
+import hearts_bot.engine
+
+# Now import modules (this will handle relative imports correctly)
+import hearts_bot.core.cards
+import hearts_bot.core.game_state
+import hearts_bot.core.rules
+import hearts_bot.inference.beliefs
+import hearts_bot.inference.sampler
+import hearts_bot.inference.updater
+import hearts_bot.engine.heuristics
+import hearts_bot.engine.simulator
+import hearts_bot.engine.mcts
+import hearts_bot.bot
+
+# Finally import the bridge
+import bot_bridge
+        `);
+        
         botModule = pyodide.pyimport('bot_bridge');
         console.log('Bot module loaded successfully');
     } catch (error) {
-        console.error('Error importing bot_bridge:', error);
-        // Try using importlib as fallback
-        try {
-            pyodide.runPython(`
-import importlib.util
-import sys
-spec = importlib.util.spec_from_file_location("bot_bridge", "bot_bridge.py")
-bot_bridge = importlib.util.module_from_spec(spec)
-sys.modules["bot_bridge"] = bot_bridge
-spec.loader.exec_module(bot_bridge)
-            `);
-            botModule = pyodide.pyimport('bot_bridge');
-            console.log('Bot module loaded with importlib');
-        } catch (fallbackError) {
-            console.error('Fallback also failed:', fallbackError);
-            throw new Error(`Failed to import bot bridge: ${error.message}. Fallback: ${fallbackError.message}`);
-        }
+        console.error('Error importing modules:', error);
+        throw new Error(`Failed to import bot bridge: ${error.message}`);
     }
 }
 
