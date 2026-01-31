@@ -247,9 +247,24 @@ existing = [f for f in files_to_check if os.path.exists(f)]
 missing = [f for f in files_to_check if not os.path.exists(f)]
 {'existing': existing, 'missing': missing}
         `);
-        const fileStatus = filesCheck.toJs();
-        console.log('Files existing:', fileStatus.existing);
-        if (fileStatus.missing.length > 0) {
+        let fileStatus;
+        try {
+            fileStatus = filesCheck.toJs();
+        } catch (e) {
+            // If toJs() fails, try accessing directly
+            console.warn('toJs() failed, trying direct access:', e);
+            fileStatus = {
+                existing: filesCheck.existing?.toJs() || [],
+                missing: filesCheck.missing?.toJs() || []
+            };
+        }
+        
+        console.log('Files existing:', fileStatus?.existing);
+        console.log('Files missing:', fileStatus?.missing);
+        
+        if (!fileStatus || !fileStatus.missing) {
+            console.warn('Could not verify file status, proceeding anyway...');
+        } else if (fileStatus.missing && fileStatus.missing.length > 0) {
             console.warn('Missing files:', fileStatus.missing);
             throw new Error(`Missing required files: ${fileStatus.missing.join(', ')}`);
         }
