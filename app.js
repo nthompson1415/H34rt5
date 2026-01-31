@@ -48,19 +48,25 @@ async function initPyodide() {
     
     try {
         console.log('Loading Pyodide...');
-        loadingEl.querySelector('p').textContent = 'Loading Pyodide runtime...';
+        updateLoadingText('Loading Pyodide runtime...');
         pyodide = await loadPyodide();
-        console.log('Pyodide loaded');
+        console.log('Pyodide loaded successfully');
+        
+        // Test that Pyodide is working
+        const testResult = pyodide.runPython('1 + 1');
+        console.log('Pyodide test result:', testResult);
 
         console.log('Loading NumPy...');
-        loadingEl.querySelector('p').textContent = 'Loading NumPy...';
+        updateLoadingText('Loading NumPy package...');
         await pyodide.loadPackage('numpy');
         console.log('NumPy loaded');
 
         console.log('Loading bot code...');
-        loadingEl.querySelector('p').textContent = 'Loading bot code...';
+        updateLoadingText('Loading bot code files...');
         await loadBotCode();
         console.log('Bot code loaded');
+        
+        updateLoadingText('Initializing bot engine...');
 
         clearTimeout(timeout);
         
@@ -71,6 +77,25 @@ async function initPyodide() {
         clearTimeout(timeout);
         console.error('Error initializing Pyodide:', error);
         showFallbackError(error);
+    }
+}
+
+// Update loading text helper
+function updateLoadingText(text) {
+    const loadingTextEl = document.getElementById('loading-text');
+    const loadingDetailsEl = document.getElementById('loading-details');
+    if (loadingTextEl) {
+        loadingTextEl.textContent = text;
+    }
+    if (loadingDetailsEl) {
+        loadingDetailsEl.textContent = '';
+    }
+}
+
+function updateLoadingDetails(text) {
+    const loadingDetailsEl = document.getElementById('loading-details');
+    if (loadingDetailsEl) {
+        loadingDetailsEl.textContent = text;
     }
 }
 
@@ -161,6 +186,7 @@ except Exception as e:
     for (const file of files) {
         try {
             console.log(`Fetching ${file}... (${loadedCount + 1}/${files.length})`);
+            updateLoadingDetails(`Loading ${file} (${loadedCount + 1}/${files.length})...`);
             const response = await fetch(file);
             if (!response.ok) {
                 // __init__.py files might be empty, that's OK
