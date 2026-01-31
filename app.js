@@ -314,7 +314,6 @@ else:
         throw new Error(`Failed to import bot modules: ${error.message}. Check browser console for details.`);
     }
 }
-}
 
 // State management
 let hand = [];
