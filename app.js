@@ -211,7 +211,7 @@ except Exception as e:
             
             // Write file to Pyodide's filesystem
             pyodide.FS.writeFile(file, code, { encoding: 'utf8' });
-            console.log(`✓ Loaded ${file} (${code.length} bytes)`);
+            console.log(`Loaded ${file} (${code.length} bytes)`);
             loadedCount++;
         } catch (error) {
             // __init__.py files are optional
@@ -225,7 +225,7 @@ except Exception as e:
                 }
                 continue;
             }
-            console.error(`✗ Error loading ${file}:`, error);
+            console.error(`Error loading ${file}:`, error);
             throw new Error(`Failed to load bot code: ${error.message}`);
         }
     }
