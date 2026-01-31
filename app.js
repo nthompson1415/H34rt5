@@ -46,10 +46,19 @@ async function initPyodide() {
 
 // Load bot code from files
 async function loadBotCode() {
-    // Set up Python path
+    // Set up Python path and create package structure
     pyodide.runPython(`
 import sys
+import os
+from pathlib import Path
+
+# Add current directory to path
 sys.path.insert(0, '.')
+
+# Create package directories in Pyodide's filesystem
+os.makedirs('hearts_bot/core', exist_ok=True)
+os.makedirs('hearts_bot/inference', exist_ok=True)
+os.makedirs('hearts_bot/engine', exist_ok=True)
     `);
 
     // List of Python files to load in order (with __init__ files first)
@@ -71,7 +80,7 @@ sys.path.insert(0, '.')
         'bot_bridge.py'
     ];
 
-    // Load each file and execute it
+    // Load each file and write it to Pyodide's filesystem, then import
     for (const file of files) {
         try {
             const response = await fetch(file);
@@ -79,25 +88,33 @@ sys.path.insert(0, '.')
                 // __init__.py files might be empty, that's OK
                 if (file.includes('__init__.py')) {
                     console.log(`Skipping empty ${file}`);
+                    // Create empty __init__.py file
+                    pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
                     continue;
                 }
                 throw new Error(`Failed to load ${file}: ${response.status}`);
             }
             const code = await response.text();
             
-            // Skip empty files
+            // Skip empty files but create them
             if (code.trim().length === 0) {
-                console.log(`Skipping empty ${file}`);
+                console.log(`Creating empty ${file}`);
+                pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
                 continue;
             }
             
-            // Execute the code
-            pyodide.runPython(code);
-            console.log(`Loaded ${file}`);
+            // Write file to Pyodide's filesystem
+            pyodide.FS.writeFile(file, code, { encoding: 'utf8' });
+            console.log(`Wrote ${file}`);
         } catch (error) {
             // __init__.py files are optional
             if (file.includes('__init__.py')) {
-                console.log(`Skipping ${file}: ${error.message}`);
+                console.log(`Creating empty ${file}: ${error.message}`);
+                try {
+                    pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
+                } catch (e) {
+                    // Ignore if we can't create it
+                }
                 continue;
             }
             console.error(`Error loading ${file}:`, error);
@@ -105,13 +122,30 @@ sys.path.insert(0, '.')
         }
     }
 
-    // Import the bridge module
+    // Now import modules - files are in Pyodide's filesystem
     try {
+        // Simple import should work now that files are in place
+        pyodide.runPython('import bot_bridge');
         botModule = pyodide.pyimport('bot_bridge');
         console.log('Bot module loaded successfully');
     } catch (error) {
         console.error('Error importing bot_bridge:', error);
-        throw new Error(`Failed to import bot bridge: ${error.message}`);
+        // Try using importlib as fallback
+        try {
+            pyodide.runPython(`
+import importlib.util
+import sys
+spec = importlib.util.spec_from_file_location("bot_bridge", "bot_bridge.py")
+bot_bridge = importlib.util.module_from_spec(spec)
+sys.modules["bot_bridge"] = bot_bridge
+spec.loader.exec_module(bot_bridge)
+            `);
+            botModule = pyodide.pyimport('bot_bridge');
+            console.log('Bot module loaded with importlib');
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+            throw new Error(`Failed to import bot bridge: ${error.message}. Fallback: ${fallbackError.message}`);
+        }
     }
 }
 
