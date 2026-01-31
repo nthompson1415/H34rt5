@@ -81,20 +81,30 @@ function showFallbackError(error) {
 
 // Load bot code from files
 async function loadBotCode() {
+    console.log('Setting up Python environment...');
     // Set up Python path and create package structure
-    pyodide.runPython(`
+    try {
+        pyodide.runPython(`
 import sys
 import os
-from pathlib import Path
 
 # Add current directory to path
 sys.path.insert(0, '.')
 
 # Create package directories in Pyodide's filesystem
-os.makedirs('hearts_bot/core', exist_ok=True)
-os.makedirs('hearts_bot/inference', exist_ok=True)
-os.makedirs('hearts_bot/engine', exist_ok=True)
-    `);
+try:
+    os.makedirs('hearts_bot/core', exist_ok=True)
+    os.makedirs('hearts_bot/inference', exist_ok=True)
+    os.makedirs('hearts_bot/engine', exist_ok=True)
+    print("Directories created successfully")
+except Exception as e:
+    print(f"Directory creation note: {e}")
+        `);
+        console.log('Python environment set up');
+    } catch (error) {
+        console.error('Error setting up Python environment:', error);
+        throw new Error(`Failed to set up Python environment: ${error.message}`);
+    }
 
     // List of Python files to load in order (with __init__ files first)
     const files = [
@@ -160,37 +170,8 @@ os.makedirs('hearts_bot/engine', exist_ok=True)
     // Now import modules - files are in Pyodide's filesystem
     // We need to import in the right order to handle relative imports
     try {
-        // Import packages in order to establish package structure
-        pyodide.runPython(`
-# Import packages to establish structure
-import hearts_bot
-import hearts_bot.core
-import hearts_bot.inference
-import hearts_bot.engine
-
-# Now import modules (this will handle relative imports correctly)
-import hearts_bot.core.cards
-import hearts_bot.core.game_state
-import hearts_bot.core.rules
-import hearts_bot.inference.beliefs
-import hearts_bot.inference.sampler
-import hearts_bot.inference.updater
-import hearts_bot.engine.heuristics
-import hearts_bot.engine.simulator
-import hearts_bot.engine.mcts
-import hearts_bot.bot
-
-# Finally import the bridge
-import bot_bridge
-        `);
-        
-        botModule = pyodide.pyimport('bot_bridge');
-        console.log('Bot module loaded successfully');
-    } catch (error) {
-        console.error('Error importing modules:', error);
-        // Try fallback: check if files exist and provide helpful error
-        try {
-            const filesExist = pyodide.runPython(`
+        // First verify files exist
+        const filesCheck = pyodide.runPython(`
 import os
 files_to_check = [
     'hearts_bot/__init__.py',
@@ -198,15 +179,73 @@ files_to_check = [
     'hearts_bot/bot.py',
     'bot_bridge.py'
 ]
+existing = [f for f in files_to_check if os.path.exists(f)]
 missing = [f for f in files_to_check if not os.path.exists(f)]
-missing
+{'existing': existing, 'missing': missing}
+        `);
+        const fileStatus = filesCheck.toJs();
+        console.log('Files existing:', fileStatus.existing);
+        if (fileStatus.missing.length > 0) {
+            console.warn('Missing files:', fileStatus.missing);
+            throw new Error(`Missing required files: ${fileStatus.missing.join(', ')}`);
+        }
+        
+        // Import packages in order to establish package structure
+        console.log('Importing packages...');
+        pyodide.runPython(`
+# Import packages to establish structure
+try:
+    import hearts_bot
+    import hearts_bot.core
+    import hearts_bot.inference
+    import hearts_bot.engine
+    print("Packages imported successfully")
+except Exception as e:
+    print(f"Error importing packages: {e}")
+    raise
+        `);
+        
+        console.log('Importing modules...');
+        // Now import modules (this will handle relative imports correctly)
+        pyodide.runPython(`
+try:
+    import hearts_bot.core.cards
+    import hearts_bot.core.game_state
+    import hearts_bot.core.rules
+    import hearts_bot.inference.beliefs
+    import hearts_bot.inference.sampler
+    import hearts_bot.inference.updater
+    import hearts_bot.engine.heuristics
+    import hearts_bot.engine.simulator
+    import hearts_bot.engine.mcts
+    import hearts_bot.bot
+    print("Modules imported successfully")
+except Exception as e:
+    print(f"Error importing modules: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
+        `);
+        
+        console.log('Importing bridge...');
+        // Finally import the bridge
+        pyodide.runPython('import bot_bridge');
+        botModule = pyodide.pyimport('bot_bridge');
+        console.log('Bot module loaded successfully');
+    } catch (error) {
+        console.error('Error importing modules:', error);
+        // Get more details from Python if possible
+        try {
+            const pythonError = pyodide.runPython(`
+import sys
+if hasattr(sys, 'last_value'):
+    str(sys.last_value)
+else:
+    "No Python error available"
             `);
-            const missing = filesExist.toJs();
-            if (missing.length > 0) {
-                throw new Error(`Missing required files: ${missing.join(', ')}. Please ensure all bot files are accessible.`);
-            }
-        } catch (checkError) {
-            console.error('File check failed:', checkError);
+            console.error('Python error details:', pythonError);
+        } catch (e) {
+            console.error('Could not get Python error details:', e);
         }
         throw new Error(`Failed to import bot modules: ${error.message}. Check browser console for details.`);
     }
@@ -424,5 +463,9 @@ function showError(message) {
 }
 
 // Start initialization
-initPyodide();
+console.log('Starting initialization...');
+initPyodide().catch(error => {
+    console.error('Unhandled error in initPyodide:', error);
+    showFallbackError(error);
+});
 initUI();
