@@ -22,22 +22,53 @@ const RANK_SYMBOLS = {
 
 // Initialize Pyodide
 async function initPyodide() {
+    const loadingEl = document.getElementById('loading');
+    
+    // Add timeout to detect if loading hangs
+    const timeout = setTimeout(() => {
+        console.error('Initialization timeout - taking too long');
+        loadingEl.innerHTML = `
+            <div style="padding: 40px; text-align: center;">
+                <h2 style="color: #dc3545;">⏱️ Loading Timeout</h2>
+                <p style="margin: 20px 0;">The bot engine is taking longer than expected to load.</p>
+                <p style="margin: 20px 0; color: #6c757d;">This might be due to slow network or large file downloads.</p>
+                <button onclick="location.reload()" style="
+                    padding: 12px 24px;
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 1em;
+                    cursor: pointer;
+                    margin-top: 20px;
+                ">Retry</button>
+            </div>
+        `;
+    }, 60000); // 60 second timeout
+    
     try {
+        console.log('Loading Pyodide...');
+        loadingEl.querySelector('p').textContent = 'Loading Pyodide runtime...';
         pyodide = await loadPyodide();
         console.log('Pyodide loaded');
 
-        // Load numpy (required dependency)
+        console.log('Loading NumPy...');
+        loadingEl.querySelector('p').textContent = 'Loading NumPy...';
         await pyodide.loadPackage('numpy');
         console.log('NumPy loaded');
 
-        // Load the bot code
+        console.log('Loading bot code...');
+        loadingEl.querySelector('p').textContent = 'Loading bot code...';
         await loadBotCode();
         console.log('Bot code loaded');
 
+        clearTimeout(timeout);
+        
         // Hide loading, show app
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
     } catch (error) {
+        clearTimeout(timeout);
         console.error('Error initializing Pyodide:', error);
         showFallbackError(error);
     }
@@ -126,8 +157,10 @@ except Exception as e:
     ];
 
     // Load each file and write it to Pyodide's filesystem, then import
+    let loadedCount = 0;
     for (const file of files) {
         try {
+            console.log(`Fetching ${file}... (${loadedCount + 1}/${files.length})`);
             const response = await fetch(file);
             if (!response.ok) {
                 // __init__.py files might be empty, that's OK
@@ -135,9 +168,10 @@ except Exception as e:
                     console.log(`Skipping empty ${file}`);
                     // Create empty __init__.py file
                     pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
+                    loadedCount++;
                     continue;
                 }
-                throw new Error(`Failed to load ${file}: ${response.status}`);
+                throw new Error(`Failed to load ${file}: ${response.status} ${response.statusText}`);
             }
             const code = await response.text();
             
@@ -145,27 +179,31 @@ except Exception as e:
             if (code.trim().length === 0) {
                 console.log(`Creating empty ${file}`);
                 pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
+                loadedCount++;
                 continue;
             }
             
             // Write file to Pyodide's filesystem
             pyodide.FS.writeFile(file, code, { encoding: 'utf8' });
-            console.log(`Wrote ${file}`);
+            console.log(`✓ Loaded ${file} (${code.length} bytes)`);
+            loadedCount++;
         } catch (error) {
             // __init__.py files are optional
             if (file.includes('__init__.py')) {
                 console.log(`Creating empty ${file}: ${error.message}`);
                 try {
                     pyodide.FS.writeFile(file, '', { encoding: 'utf8' });
+                    loadedCount++;
                 } catch (e) {
                     // Ignore if we can't create it
                 }
                 continue;
             }
-            console.error(`Error loading ${file}:`, error);
+            console.error(`✗ Error loading ${file}:`, error);
             throw new Error(`Failed to load bot code: ${error.message}`);
         }
     }
+    console.log(`All ${loadedCount} files loaded successfully`);
 
     // Now import modules - files are in Pyodide's filesystem
     // We need to import in the right order to handle relative imports
