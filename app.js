@@ -340,6 +340,7 @@ function initUI() {
     document.getElementById('add-card-btn').addEventListener('click', addCardToHand);
     document.getElementById('clear-hand-btn').addEventListener('click', clearHand);
     document.getElementById('get-move-btn').addEventListener('click', getBestMove);
+    document.getElementById('parse-cards-btn').addEventListener('click', parseAndAddCards);
     
     // Trick management
     document.getElementById('add-trick-card-btn').addEventListener('click', addCardToTrick);
@@ -348,6 +349,11 @@ function initUI() {
     // Allow Enter key in selects
     document.getElementById('rank-select').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addCardToHand();
+    });
+    
+    // Allow Enter key in bulk input
+    document.getElementById('bulk-cards-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') parseAndAddCards();
     });
 }
 
@@ -381,6 +387,112 @@ window.removeCardFromHand = function(index) {
 function clearHand() {
     hand = [];
     updateHandDisplay();
+}
+
+function parseAndAddCards() {
+    const input = document.getElementById('bulk-cards-input').value.trim();
+    if (!input) {
+        showError('Please enter cards to add!');
+        return;
+    }
+    
+    // Parse cards from string like "2c, 3d, qs, ah" or "2c 3d qs ah"
+    const cardStrings = input.split(/[,\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+    
+    const rankMap = {
+        '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
+        'j': 'J', 'q': 'Q', 'k': 'K', 'a': 'A',
+        'J': 'J', 'Q': 'Q', 'K': 'K', 'A': 'A'
+    };
+    
+    const suitMap = {
+        'c': '♣', 'C': '♣', '♣': '♣',
+        'd': '♦', 'D': '♦', '♦': '♦',
+        's': '♠', 'S': '♠', '♠': '♠',
+        'h': '♥', 'H': '♥', '♥': '♥'
+    };
+    
+    const addedCards = [];
+    const errors = [];
+    
+    for (const cardStr of cardStrings) {
+        if (cardStr.length < 2) {
+            errors.push(`Invalid card format: "${cardStr}" (too short)`);
+            continue;
+        }
+        
+        // Handle 10 as a special case (2 characters)
+        let rankStr, suitStr;
+        if (cardStr.length >= 3 && cardStr.substring(0, 2) === '10') {
+            rankStr = '10';
+            suitStr = cardStr.substring(2).toLowerCase();
+        } else {
+            rankStr = cardStr.substring(0, cardStr.length - 1).toLowerCase();
+            suitStr = cardStr.substring(cardStr.length - 1).toLowerCase();
+        }
+        
+        const rank = rankMap[rankStr];
+        const suit = suitMap[suitStr];
+        
+        if (!rank) {
+            errors.push(`Invalid rank in "${cardStr}": "${rankStr}"`);
+            continue;
+        }
+        
+        if (!suit) {
+            errors.push(`Invalid suit in "${cardStr}": "${suitStr}"`);
+            continue;
+        }
+        
+        // Check if card already exists
+        if (hand.some(c => c.rank === rank && c.suit === suit)) {
+            errors.push(`Card ${rank}${suit} already in hand`);
+            continue;
+        }
+        
+        // Check if hand is full
+        if (hand.length >= 13) {
+            errors.push(`Hand is full (13 cards max)! Could not add ${rank}${suit}`);
+            continue;
+        }
+        
+        hand.push({ rank, suit });
+        addedCards.push(`${rank}${suit}`);
+    }
+    
+    // Clear input on success
+    if (addedCards.length > 0) {
+        document.getElementById('bulk-cards-input').value = '';
+    }
+    
+    // Show results
+    if (addedCards.length > 0) {
+        updateHandDisplay();
+        if (errors.length === 0) {
+            // Show success message briefly
+            const successMsg = `Added ${addedCards.length} card(s): ${addedCards.join(', ')}`;
+            showSuccess(successMsg);
+        } else {
+            // Show partial success with errors
+            const msg = `Added ${addedCards.length} card(s). Errors: ${errors.join('; ')}`;
+            showError(msg);
+        }
+    } else if (errors.length > 0) {
+        showError(`Could not add any cards. Errors: ${errors.join('; ')}`);
+    }
+}
+
+function showSuccess(message) {
+    const errorEl = document.getElementById('error');
+    errorEl.textContent = message;
+    errorEl.style.color = '#28a745';
+    errorEl.style.background = 'rgba(40, 167, 69, 0.2)';
+    errorEl.classList.remove('hidden');
+    setTimeout(() => {
+        errorEl.classList.add('hidden');
+        errorEl.style.color = '';
+        errorEl.style.background = '';
+    }, 3000);
 }
 
 function updateHandDisplay() {

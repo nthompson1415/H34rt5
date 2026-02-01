@@ -61,7 +61,24 @@
                         </select>
                         <button id="add-card-btn" class="btn btn-primary">Add Card</button>
                     </div>
-                    <button id="clear-hand-btn" class="btn btn-secondary">Clear Hand</button>
+                    <div class="bulk-card-input" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                        <label for="bulk-cards-input" style="display: block; margin-bottom: 8px;">
+                            <strong>Or add multiple cards at once:</strong>
+                            <small style="display: block; font-weight: normal; opacity: 0.8; margin-top: 4px;">
+                                Format: 2c, 3d, qs, ah (2 clubs, 3 diamonds, queen spades, ace hearts)
+                            </small>
+                        </label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input 
+                                type="text" 
+                                id="bulk-cards-input" 
+                                placeholder="2c, 3d, qs, ah"
+                                style="flex: 1; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; background: rgba(255,255,255,0.1); color: white; font-size: 14px;"
+                            >
+                            <button id="parse-cards-btn" class="btn btn-primary">Add All</button>
+                        </div>
+                    </div>
+                    <button id="clear-hand-btn" class="btn btn-secondary" style="margin-top: 15px;">Clear Hand</button>
                 </div>
             </div>
 
